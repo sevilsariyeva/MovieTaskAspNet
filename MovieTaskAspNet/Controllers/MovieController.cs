@@ -1,17 +1,23 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MovieTaskAspNet.Entities;
 using MovieTaskAspNet.Services.Abstract;
+using System.ComponentModel;
 
 namespace MovieTaskAspNet.Controllers
 {
+    [Route("api/[controller]")]
+    [ApiController]
     public class MovieController:ControllerBase
     {
         private IMovieService _movieService;
-
+        
         public MovieController(IMovieService movieService)
         {
             _movieService = movieService;
         }
+
+        
+
         [HttpGet]
         public IEnumerable<Movie> Get()
         {

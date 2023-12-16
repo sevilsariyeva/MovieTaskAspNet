@@ -3,21 +3,50 @@ using MovieTaskAspNet.Repositories.Abstract;
 using MovieTaskAspNet.Repositories.Concrete;
 using MovieTaskAspNet.Services.Abstract;
 using Newtonsoft.Json;
+using System.ComponentModel;
 using System.Linq.Expressions;
 
 namespace MovieTaskAspNet.Services.Concrete
 {
     public class MovieService : IMovieService
     {
-        private readonly IMovieRepository _movieRepository;
+        private readonly IMovieRepository _movieRepository; 
+        private BackgroundWorker _backgroundWorker;
+        private bool isWorking;
         public static dynamic? Data { get; set; }
         public static dynamic? SingleData { get; set; }
-
-        public MovieService(IMovieRepository movieRepository)
+        static Random random = new Random();
+        public static char GetLetter()
+        {
+            int num = random.Next(0, 26);
+            char let = (char)('a' + num);
+            return let;
+        }
+        public MovieService(IMovieRepository movieRepository,BackgroundWorker backgroundWorker)
         {
             _movieRepository = movieRepository;
+            _backgroundWorker = backgroundWorker;
+            InitializeBackWorker();
         }
+        public void InitializeBackWorker()
+        {
+            _backgroundWorker = new BackgroundWorker();
+            _backgroundWorker.DoWork += BackgroundWorker_DoWork;
+        }
+        
+        private void BackgroundWorker_DoWork(object? sender, DoWorkEventArgs e)
+        {
+            BackgroundWorker? worker = sender as BackgroundWorker;
+            while (!worker.CancellationPending && !isWorking)
+            {
+                var word = GetLetter();
+                isWorking = true;
+                SearchMovie(word);
 
+                Thread.Sleep(10000);
+                isWorking = !isWorking;
+            }
+        }
         public void Add(Movie entity)
         {
             _movieRepository.Add(entity);
@@ -39,13 +68,13 @@ namespace MovieTaskAspNet.Services.Concrete
             return _movieRepository.GetAll();
         }
 
-        public Movie SearchMovie(string movie)
+        public Movie SearchMovie(char letter)
         {
-
-                HttpClient httpClient = new HttpClient();
+            
+            HttpClient httpClient = new HttpClient();
                 HttpResponseMessage response = new HttpResponseMessage();
 
-                response = httpClient.GetAsync($@"http://www.omdbapi.com/?apikey=3eb9dfa5&s={movie}&plot=full").Result;
+                response = httpClient.GetAsync($@"http://www.omdbapi.com/?apikey=3eb9dfa5&s={letter}&plot=full").Result;
                 var str = response.Content.ReadAsStringAsync().Result;
                 Data = JsonConvert.DeserializeObject(str);
 
@@ -70,6 +99,7 @@ namespace MovieTaskAspNet.Services.Concrete
                     {
                         break;
                     }
+                   
                 }
             }
             catch (Exception)

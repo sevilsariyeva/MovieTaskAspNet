@@ -8,6 +8,12 @@ namespace MovieTaskAspNet.Repositories.Concrete
     public class MovieRepository : IMovieRepository
     {
         private readonly MovieDbContext _context;
+
+        public MovieRepository(MovieDbContext context)
+        {
+            _context = context;
+        }
+
         public void Add(Movie entity)
         {
             _context.Add(entity);
