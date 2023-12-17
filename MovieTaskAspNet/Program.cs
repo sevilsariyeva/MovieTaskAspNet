@@ -5,6 +5,7 @@ using MovieTaskAspNet.Repositories.Abstract;
 using MovieTaskAspNet.Repositories.Concrete;
 using MovieTaskAspNet.Services.Abstract;
 using MovieTaskAspNet.Services.Concrete;
+using System.ComponentModel;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +18,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IMovieRepository, MovieRepository>();
 builder.Services.AddScoped<IMovieService, MovieService>();
-builder.Services.AddSingleton<System.ComponentModel.BackgroundWorker>();
+builder.Services.AddSingleton<BackgroundWorker>();
 
 var connection = builder.Configuration.GetConnectionString("myconn");
 builder.Services.AddDbContext<MovieDbContext>(opt =>
@@ -38,5 +39,6 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
-
+var backgroundWorker = app.Services.GetRequiredService<BackgroundWorker>();
+backgroundWorker.RunWorkerAsync();
 app.Run();

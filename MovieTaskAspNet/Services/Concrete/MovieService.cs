@@ -1,52 +1,74 @@
-﻿using MovieTaskAspNet.Entities;
-using MovieTaskAspNet.Repositories.Abstract;
-using MovieTaskAspNet.Repositories.Concrete;
-using MovieTaskAspNet.Services.Abstract;
-using Newtonsoft.Json;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq.Expressions;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using MovieTaskAspNet.Entities;
+using MovieTaskAspNet.Repositories.Abstract;
+using MovieTaskAspNet.Services.Abstract;
+using Newtonsoft.Json;
 
 namespace MovieTaskAspNet.Services.Concrete
 {
     public class MovieService : IMovieService
     {
-        private readonly IMovieRepository _movieRepository; 
-        private BackgroundWorker _backgroundWorker;
-        private bool isWorking;
+        private readonly IConfiguration _configuration;
+        private readonly IMovieRepository _movieRepository;
+        private readonly BackgroundWorker _backgroundWorker;
+        private bool _isWorking;
+
         public static dynamic? Data { get; set; }
         public static dynamic? SingleData { get; set; }
-        static Random random = new Random();
-        public static char GetLetter()
-        {
-            int num = random.Next(0, 26);
-            char let = (char)('a' + num);
-            return let;
-        }
-        public MovieService(IMovieRepository movieRepository,BackgroundWorker backgroundWorker)
+
+        static Random _random = new Random();
+
+        public MovieService(IMovieRepository movieRepository,IConfiguration configuration)
         {
             _movieRepository = movieRepository;
-            _backgroundWorker = backgroundWorker;
-            InitializeBackWorker();
-        }
-        public void InitializeBackWorker()
-        {
+            _configuration = configuration;
             _backgroundWorker = new BackgroundWorker();
             _backgroundWorker.DoWork += BackgroundWorker_DoWork;
+
+            _backgroundWorker.RunWorkerAsync();
         }
-        
+
         private void BackgroundWorker_DoWork(object? sender, DoWorkEventArgs e)
         {
             BackgroundWorker? worker = sender as BackgroundWorker;
-            while (!worker.CancellationPending && !isWorking)
-            {
-                var word = GetLetter();
-                isWorking = true;
-                SearchMovie(word);
 
-                Thread.Sleep(10000);
-                isWorking = !isWorking;
+            while (!worker.CancellationPending)
+            {
+                if (!_isWorking)
+                {
+                    var word = GetLetter();
+                    _isWorking = true;
+                    SearchAndSaveMovie(word);
+                    _isWorking = false;
+                }
+                int sleepTime = _configuration.GetValue<int>("AppSettings:SleepTime");
+                Thread.Sleep(sleepTime*1000);
             }
         }
+
+        public char GetLetter()
+        {
+            int num = _random.Next(0, 26);
+            char let = (char)('a' + num);
+            return let;
+        }
+
+        public async void SearchAndSaveMovie(char letter)
+        {
+            var movie = await SearchMovie(letter);
+            if (movie != null)
+            {
+                Add(movie);
+            }
+        }
+
         public void Add(Movie entity)
         {
             _movieRepository.Add(entity);
@@ -68,49 +90,50 @@ namespace MovieTaskAspNet.Services.Concrete
             return _movieRepository.GetAll();
         }
 
-        public Movie SearchMovie(char letter)
+        public async Task<Movie?> SearchMovie(char letter)
         {
-            
             HttpClient httpClient = new HttpClient();
-                HttpResponseMessage response = new HttpResponseMessage();
+            HttpResponseMessage response = await httpClient.GetAsync($"http://www.omdbapi.com/?apikey=3eb9dfa5&s={letter}&plot=full");
 
-                response = httpClient.GetAsync($@"http://www.omdbapi.com/?apikey=3eb9dfa5&s={letter}&plot=full").Result;
-                var str = response.Content.ReadAsStringAsync().Result;
-                Data = JsonConvert.DeserializeObject(str);
-
-                List<Movie> movies = new List<Movie>();
-                var myMovie = new Movie { };
-            try
+            if (response.IsSuccessStatusCode)
             {
-                for (int i = 0; i < 100; i++)
+                var str = await response.Content.ReadAsStringAsync();
+                dynamic searchData = JsonConvert.DeserializeObject(str);
+
+                if (searchData != null && searchData.Search != null && searchData.Search.Count > 0)
                 {
-                    response = httpClient.GetAsync($@"http://www.omdbapi.com/?apikey=3eb9dfa5&t={Data.Search[i].Title}&plot=full").Result;
-                    str = response.Content.ReadAsStringAsync().Result;
-                    SingleData = JsonConvert.DeserializeObject(str);
-                    myMovie = new Movie
+                    foreach (var searchDataItem in searchData.Search)
                     {
-                        About = SingleData.Plot,
-                        ImagePath = SingleData.Poster,
-                        MovieName = SingleData.Title,
-                        Rating = SingleData.imdbRating,
-                    };
-                    _movieRepository.Get(m => m.MovieName == myMovie.MovieName);
-                    if (_movieRepository == null)
-                    {
-                        break;
+                        if (searchDataItem.Title.StartsWith(letter.ToString(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            response = await httpClient.GetAsync($"http://www.omdbapi.com/?apikey=3eb9dfa5&t={searchDataItem.Title}&plot=full");
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                str = await response.Content.ReadAsStringAsync();
+                                dynamic singleData = JsonConvert.DeserializeObject(str);
+
+                                var myMovie = new Movie
+                                {
+                                    About = singleData.Plot,
+                                    ImagePath = singleData.Poster,
+                                    MovieName = singleData.Title,
+                                    Rating = singleData.imdbRating
+                                };
+
+                                return myMovie;
+                            }
+                        }
                     }
-                   
                 }
             }
-            catch (Exception)
-            {
-            }
-            return myMovie;
+            return null; 
         }
+
 
         public void Update(Movie entity)
         {
-            _movieRepository.Update(entity);    
+            _movieRepository.Update(entity);
         }
     }
 }

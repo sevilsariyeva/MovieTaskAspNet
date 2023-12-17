@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using MovieTaskAspNet.Entities;
+using System.Linq.Expressions;
 
 namespace MovieTaskAspNet.Services.Abstract
 {
@@ -9,6 +10,6 @@ namespace MovieTaskAspNet.Services.Abstract
         void Add(T entity);
         void Update(T entity);
         void Delete(int id);
-        T SearchMovie(char letter);
+        Task<Movie> SearchMovie(char letter);
     }
 }
