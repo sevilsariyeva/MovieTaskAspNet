@@ -65,13 +65,14 @@ namespace MovieTaskAspNet.Services.Concrete
             var movie = await SearchMovie(letter);
             if (movie != null)
             {
-                Add(movie);
+                await Add(movie);
             }
         }
 
-        public void Add(Movie entity)
+        public Task Add(Movie entity)
         {
             _movieRepository.Add(entity);
+            return Task.CompletedTask;
         }
 
         public void Delete(int id)
@@ -89,45 +90,57 @@ namespace MovieTaskAspNet.Services.Concrete
         {
             return _movieRepository.GetAll();
         }
+        //public async Task<Movie> GetMovieFromApi(string letter)
+        //{
+        //    HttpClient httpClient = new HttpClient();
 
+        //    string apiKey = "3eb9dfa5";
+        //    string apiUrl = $"https://www.omdbapi.com/?apikey={apiKey}&t={letter}*";
+
+        //    var response = await httpClient.GetAsync(apiUrl);
+
+        //    if (response.IsSuccessStatusCode)
+        //    {
+        //        var content = await response.Content.ReadAsStringAsync();
+        //        dynamic singleData = JsonConvert.DeserializeObject(content);
+
+        //        var myMovie = new Movie
+        //        {
+        //            About = singleData.Plot,
+        //            ImagePath = singleData.Poster,
+        //            MovieName = singleData.Title,
+        //            Rating = singleData.imdbRating
+        //        };
+        //    }
+        //    else
+        //    {
+        //        return null;
+        //    }
+        //}
         public async Task<Movie?> SearchMovie(char letter)
         {
             HttpClient httpClient = new HttpClient();
-            HttpResponseMessage response = await httpClient.GetAsync($"http://www.omdbapi.com/?apikey=3eb9dfa5&s={letter}&plot=full");
+
+            string apiKey = "3eb9dfa5";
+            string apiUrl = $"https://www.omdbapi.com/?apikey={apiKey}&t={letter}*";
+
+            var response = await httpClient.GetAsync(apiUrl);
 
             if (response.IsSuccessStatusCode)
             {
-                var str = await response.Content.ReadAsStringAsync();
-                dynamic searchData = JsonConvert.DeserializeObject(str);
+                var content = await response.Content.ReadAsStringAsync();
+                dynamic? singleData = JsonConvert.DeserializeObject(content);
 
-                if (searchData != null && searchData.Search != null && searchData.Search.Count > 0)
+                var myMovie = new Movie
                 {
-                    foreach (var searchDataItem in searchData.Search)
-                    {
-                        if (searchDataItem.Title.StartsWith(letter.ToString(), StringComparison.OrdinalIgnoreCase))
-                        {
-                            response = await httpClient.GetAsync($"http://www.omdbapi.com/?apikey=3eb9dfa5&t={searchDataItem.Title}&plot=full");
-
-                            if (response.IsSuccessStatusCode)
-                            {
-                                str = await response.Content.ReadAsStringAsync();
-                                dynamic singleData = JsonConvert.DeserializeObject(str);
-
-                                var myMovie = new Movie
-                                {
-                                    About = singleData.Plot,
-                                    ImagePath = singleData.Poster,
-                                    MovieName = singleData.Title,
-                                    Rating = singleData.imdbRating
-                                };
-
-                                return myMovie;
-                            }
-                        }
-                    }
-                }
+                    MovieName = singleData?.Title
+                };
+                return myMovie;
             }
-            return null; 
+            else
+            {
+                return null;
+            }
         }
 
 

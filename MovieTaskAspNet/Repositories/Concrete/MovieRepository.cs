@@ -14,10 +14,11 @@ namespace MovieTaskAspNet.Repositories.Concrete
             _context = context;
         }
 
-        public void Add(Movie entity)
+        public Task Add(Movie entity)
         {
             _context.Add(entity);
             _context.SaveChanges();
+            return Task.CompletedTask;
         }
 
         public void Delete(Movie entity)
@@ -43,5 +44,7 @@ namespace MovieTaskAspNet.Repositories.Concrete
             _context.Movies.Update(entity);
             _context.SaveChanges();
         }
+
+       
     }
 }
